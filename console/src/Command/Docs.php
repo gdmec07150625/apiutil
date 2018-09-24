@@ -3,6 +3,8 @@
 namespace Apiutil\Console\Command;
 
 use Apiutil\Blueprint\Blueprint;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Log;
 use ReflectionClass;
 use Illuminate\Support\Arr;
 use Dingo\Api\Routing\Router;
@@ -46,6 +48,24 @@ class Docs extends Command
      */
     protected $version;
 
+    protected $outputDir;
+
+    //文档类型
+    const CUSTOMER = 1;
+    const RIDER = 2;
+    const BUSINESS = 3;
+    const POS = 4;
+    const COMMON = 5;
+
+    //mapping
+    const MAPPING = [
+        self::CUSTOMER => 'customer',
+        self::RIDER => 'rider',
+        self::BUSINESS => 'business',
+        self::POS => 'pos',
+        self::COMMON => 'common'
+    ];
+
     /**
      * The name and signature of the console command.
      *
@@ -53,7 +73,8 @@ class Docs extends Command
      */
     protected $signature = 'util:docs {--name= : Name of the generated documentation}
                                      {--use-version= : Version of the documentation to be generated}
-                                     {--output-file= : Output the generated documentation to a file}
+                                     {--type= : 1-customer 2-rider 3-business 4-POS 5-common}
+                                     {--output-dir= : Output the generated documentation to a dir}
                                      {--include-path= : Path where included documentation files are located}';
 
     /**
@@ -74,7 +95,7 @@ class Docs extends Command
      *
      * @return void
      */
-    public function __construct(Router $router, Blueprint $blueprint, $name = 'name', $version = 'v1')
+    public function __construct(Router $router, Blueprint $blueprint, $name='docs', $version='v1')
     {
         parent::__construct();
 
@@ -82,6 +103,8 @@ class Docs extends Command
         $this->blueprint = $blueprint;
         $this->name = $name;
         $this->version = $version;
+        $this->outputDir = base_path('docs');
+
     }
 
     /**
@@ -91,15 +114,22 @@ class Docs extends Command
      */
     public function handle()
     {
-        $contents = $this->blueprint->generate($this->getControllers(), $this->getDocName(), $this->getVersion(), $this->getIncludePath());
-        if ($file = $this->option('output-file')) {
-            //$this->writer->write($contents, $file);
-
-            return $this->info('Documentation was generated successfully.');
+        //清空当前目录的所有文档
+        $this->delDir($this->getOutputDir());
+        $writer = new Filesystem();
+        if (!$writer->isDirectory($this->getOutputDir())){
+            $writer->makeDirectory($this->getOutputDir());
         }
+        //生成README文档
+        $contents = $this->createReadme($this->getType());
+        $file = $this->getOutputDir().'README.md';
+        $writer->put($file, $contents);
 
-        return $this->line($contents);
+        $this->blueprint->generate($this->getControllers(self::MAPPING[$this->getType()]), $this->getType(), $this->getVersion(), $this->getIncludePath(),$this->getOutputDir());
+
+        return $this->info('Documentation was generated successfully.');
     }
+
 
     /**
      * Get the documentation name.
@@ -117,6 +147,28 @@ class Docs extends Command
         }
 
         return $name;
+    }
+
+    /**
+     * 输出文档类型
+     * 类型说明：1-用户端 2-骑手端 3-商家端 4-POS端 5-公共接口
+     */
+    protected function getType () {
+        $arr = [self::CUSTOMER, self::RIDER, self::BUSINESS, self::POS, self::COMMON];
+        $type = $this->option('type') ?: 0;
+        if (!in_array($type, $arr)) {
+            $this->comment('Type does not exist');
+            exit;
+        }
+        return $type;
+    }
+
+    /**
+     * 文档输出文件夹
+     */
+    protected function getOutputDir () {
+        $dir = $this->option('output-dir') ?: $this->outputDir;
+        return $dir.DIRECTORY_SEPARATOR;
     }
 
     /**
@@ -152,14 +204,14 @@ class Docs extends Command
      *
      * @return array
      */
-    protected function getControllers()
+    protected function getControllers($type)
     {
         $controllers = new Collection;
 
         foreach ($this->router->getRoutes() as $collections) {
             foreach ($collections as $route) {
                 if ($controller = $route->getControllerInstance()) {
-                    $this->addControllerIfNotExists($controllers, $controller);
+                    $this->addControllerIfNotExists($controllers, $controller, $type);
                 }
             }
         }
@@ -177,7 +229,7 @@ class Docs extends Command
      *
      * @return void
      */
-    protected function addControllerIfNotExists(Collection $controllers, $controller)
+    protected function addControllerIfNotExists(Collection $controllers, $controller, $type)
     {
         $class = get_class($controller);
 
@@ -194,7 +246,54 @@ class Docs extends Command
         if ($interface) {
             $controller = $interface;
         }
+        $arr = explode('\\', $class);
+        if (strtolower($arr[count($arr)-2] === $type)) {
+            $controllers->put($class, $controller);
+        }
+    }
 
-        $controllers->put($class, $controller);
+    /**
+     * 生成readme文档
+     */
+    protected function createReadme ($type) {
+        $contents = '';
+        switch ($type){
+            case self::CUSTOMER:
+                $contents .= '# 用户端';
+                break;
+            case self::RIDER:
+                $contents .= '# 骑手端';
+                break;
+            case self::BUSINESS:
+                $contents .= '# 商家端（商家APP/商家PC）';
+                break;
+            case self::POS:
+                $contents .= '# POS/PAD端';
+                break;
+            case self::COMMON:
+                $contents .= '# 公共接口';
+                break;
+        }
+        return $contents;
+    }
+
+    /**
+     * 清空文件夹内容
+     * @param $dir
+     */
+    protected function delDir($dir){
+        if(is_dir($dir)){
+            $p = scandir($dir);
+            foreach($p as $val){
+                if($val !="." && $val !=".."){
+                    if(is_dir($dir.$val)){
+                        $this->delDir($dir.$val.DIRECTORY_SEPARATOR);
+                        //@rmdir($dir.$val.DIRECTORY_SEPARATOR);
+                    }else{
+                        unlink($dir.$val);
+                    }
+                }
+            }
+        }
     }
 }

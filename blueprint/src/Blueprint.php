@@ -81,7 +81,7 @@ class Blueprint
      *
      * @return bool
      */
-    public function generate(Collection $controllers, $name, $version, $includePath = null, $overviewFile = null)
+    public function generate(Collection $controllers, $type, $version, $includePath = null, $overviewDir = null)
     {
         $this->includePath = $includePath;
 
@@ -111,7 +111,7 @@ class Blueprint
 
             return new RestResource($controller->getName(), $controller, $annotations, $actions);
         });
-        $contents = $this->generateContentsFromResources($resources, $name, $overviewFile);
+        $contents = $this->generateContentsFromResources($resources, $type, $overviewDir);
         $this->includePath = null;
 
         return $contents;
@@ -126,15 +126,11 @@ class Blueprint
      *
      * @return string
      */
-    protected function  generateContentsFromResources(Collection $resources, $name, $overviewFile = null)
+    protected function  generateContentsFromResources(Collection $resources, $type, $overviewDir = null)
     {
         $writer = new Filesystem();
 
-        if (!$writer->isDirectory(base_path('docs'))){
-            $writer->makeDirectory(base_path('docs'));
-        }
-
-        $resources->each(function ($resource) use ($writer) {
+        $resources->each(function ($resource) use ($writer, $overviewDir) {
             $contents = '';
 
             if ($resource->getActions()->isEmpty()) {
@@ -151,13 +147,14 @@ class Blueprint
             if (($parameters = $resource->getParameters()) && ! $parameters->isEmpty()) {
                 $this->appendParameters($contents, $parameters);
             }
-            $resource->getActions()->each(function ($action) use ($resource, $writer) {
+
+            $resource->getActions()->each(function ($action) use ($resource, $writer, $overviewDir) {
                 $contents = '';
                 //$contents .= $this->line(2);
                 $contents .= $action->getDefinition();
 
                 if ($description = $action->getDescription()) {
-                    //$contents .= $this->line();
+                    $contents .= $this->line();
                     $contents .= $description;
                 }
 
@@ -193,7 +190,7 @@ class Blueprint
                     }
                 }
 
-                $file_name = sprintf('%s.md', base_path('docs').DIRECTORY_SEPARATOR.iconv("utf-8","gb2312", $action->getIdentifier()));
+                $file_name = sprintf('%s.md', $overviewDir.iconv("utf-8","gb2312", $action->getIdentifier()));
                 $writer->put($file_name, $contents);
             });
         });
