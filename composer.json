@@ -40,7 +40,5 @@
                 "Apiutil\\Console\\Provider\\LaravelServiceProvider"
             ]
         }
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true
+    }
 }
