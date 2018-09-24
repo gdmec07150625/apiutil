@@ -1,0 +1,46 @@
+{
+    "name": "ling/apiutil",
+    "description": "API Blueprint documentation generator.",
+    "keywords": ["blueprint", "api", "laravel", "dingo", "docs"],
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "ling",
+            "email": "864345280@qq.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.5.9",
+        "illuminate/support": "^5.1",
+        "illuminate/filesystem": "^5.1",
+        "doctrine/annotations": "~1.2",
+        "phpdocumentor/reflection-docblock": "^3.1"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "~2.0",
+        "phpunit/phpunit": "~4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Apiutil\\Console\\": "console/src/",
+            "Apiutil\\Blueprint\\": "blueprint/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Apiutil\\Console\\Tests\\": "tests"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0-dev"
+        },
+        "laravel": {
+            "providers": [
+                "Apiutil\\Console\\Provider\\LaravelServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
